@@ -6,9 +6,8 @@ const SPECIAL_CHARS = '!@#$%^&*';
 
 /**
  * Returns a username that is parallel-safe across many concurrent test runs.
- * Combines Faker's userName with a UUID-derived suffix; effective collision rate ~10^-9.
- * Alphanumeric only — no underscores or punctuation, since some DemoQA endpoints
- * have historically rejected non-alphanumeric usernames.
+ * Combines Faker's userName with a UUID-derived suffix.
+ * Alphanumeric only.
  */
 export function uniqueUsername(): string {
   const fakerName = faker.internet.username().replace(/[^a-zA-Z0-9]/g, '');

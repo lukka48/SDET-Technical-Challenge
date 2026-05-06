@@ -34,12 +34,12 @@ test(
             await cleanupApi.dispose();
           }
         }
-      } catch {
-        // best-effort
+      } catch(err) {
+        console.warn(`E2E-001 cleanup failed for ${registered.userID}:`, err); 
       }
     });
 
-    // 2. Real UI login.
+    
     await page.goto('/login');
     await page.getByPlaceholder('UserName').fill(user.userName);
     await page.getByPlaceholder('Password').fill(user.password);
@@ -47,8 +47,7 @@ test(
     await page.waitForURL(/profile/i, { timeout: 15_000 });
     expect(page.url()).toMatch(/profile/i);
 
-    // 3. Acquire a fresh token AFTER UI login (DemoQA may have invalidated the
-    //    pre-login token) and use it for all API operations in this test.
+    
     const tokenRes = await generateToken(apiContext, user);
     expect(tokenRes.token).toBeTruthy();
     const authedApi = await BaseAPI.create({ token: tokenRes.token! });

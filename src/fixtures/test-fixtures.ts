@@ -37,7 +37,7 @@ export const test = base.extend<{
         }
       }
     } catch {
-      // best-effort
+      
     }
   },
 
@@ -48,7 +48,7 @@ export const test = base.extend<{
       try {
         await fn();
       } catch {
-        // best-effort
+        
       }
     }
   },

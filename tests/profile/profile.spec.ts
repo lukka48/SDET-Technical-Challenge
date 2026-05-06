@@ -12,7 +12,6 @@ test(
   'User > Profile > Displays correct user data after UI login',
   { annotation: { type: 'ID', description: 'PROF-001' } },
   async ({ page, apiContext, cleanupStack }) => {
-    // Arrange — register via API; UI registration on DemoQA needs a CAPTCHA.
     const user = generateUserData();
     const registered = await registerUser(apiContext, user);
     cleanupStack.push(async () => {
@@ -27,10 +26,7 @@ test(
       }
     });
 
-    // Act — real UI login from a logged-out state.
     await page.goto('/login');
-    // Guard: if a future change auto-injects a session, DemoQA redirects away
-    // from /login — the test would silently bypass the UI flow it's meant to verify.
     expect(page.url()).toMatch(/login/i);
     await page.getByPlaceholder('UserName').fill(user.userName);
     await page.getByPlaceholder('Password').fill(user.password);

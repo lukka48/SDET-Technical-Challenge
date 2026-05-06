@@ -1,7 +1,7 @@
 import { request, type APIRequestContext, type APIResponse } from '@playwright/test';
 
 export class BaseAPI {
-  /** Brand for realm-safe discrimination in resolveApi. */
+  
   readonly __brand = 'BaseAPI' as const;
 
   private constructor(private readonly ctx: APIRequestContext) {}
@@ -9,7 +9,7 @@ export class BaseAPI {
   static async create(opts: { token?: string }): Promise<BaseAPI> {
     const baseURL = process.env.API_BASE_URL;
     if (!baseURL) {
-      throw new Error('API_BASE_URL is not set — copy .env.example to .env or set it in CI');
+      throw new Error('API_BASE_URL is not set in the environment variables');
     }
     const ctx = await request.newContext({
       baseURL,
@@ -41,9 +41,7 @@ export class BaseAPI {
       const text = await res.text().catch(() => '<no body>');
       throw new Error(`${method} ${path} -> ${res.status()} ${res.statusText()}\n${text}`);
     }
-    if (res.status() === 204) return undefined as T;
-    // Some 2xx responses (e.g. 200 with no body for idempotent DELETEs) are spec-legal.
-    // Read as text first so an empty body becomes `undefined`, not a JSON.parse exception.
+    
     const text = await res.text();
     if (text.length === 0) return undefined as T;
     return JSON.parse(text) as T;

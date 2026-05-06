@@ -84,7 +84,7 @@ eslint.config.mjs                     Playwright recommended rules
 
 ```ts
 test('example', async ({ customPage: page }) => {
-  const api = await page.getAPI(); // lazily registers a fresh user on first call
+  const api = await page.getAPI(); 
   await page.goto('/profile'); // native Page method — call AFTER getAPI() so the lazy fixture's session navigation does not clobber it
   await expect(page.getByRole('row')).toBeVisible();
 });
@@ -106,10 +106,9 @@ test('api example', async ({ apiContext }) => {
 
 ```ts
 test('uses customPage', async ({ customPage: page }) => {
-  const api = await page.getAPI(); // first call: registers a user, injects session, returns authed BaseAPI
+  const api = await page.getAPI();
   const userId = await page.getUserId();
-  await page.goto('/profile'); // navigate AFTER getAPI() — see note below
-  // No cleanup code in the test body — fixture teardown handles it.
+  await page.goto('/profile'); 
 });
 ```
 
@@ -148,24 +147,3 @@ Teardown runs unconditionally — even when the test throws, because Playwright 
 - **Test naming convention:** `Domain > Feature > Action`
 - **Annotation IDs** on every test: `{ annotation: { type: 'ID', description: '<TAG-NNN>' } }`
 - **At least 3 meaningful assertions** per test
-- `package-lock.json` is committed — required by `npm ci` and CI's `cache: npm`
-
-## CI/CD
-
-`.github/workflows/test.yml` runs on push and PR to `main`:
-
-1. Install deps (`npm ci`) with caching keyed on `package-lock.json`
-2. Cache Playwright browsers across runs
-3. Lint → typecheck → test (each gates the next; a stray `test.only` fails fast on lint, before burning ~1 minute on the suite)
-4. Upload HTML report on every run; traces and videos only on failure
-5. PR annotations via Playwright's GitHub reporter; JUnit XML for downstream tooling
-
-`forbidOnly` and `retries: 1` activate when `CI=true`, blocking committed `test.only` from landing.
-
-## Troubleshooting
-
-- **DemoQA returns 5xx.** The public demo app is occasionally slow. CI retries once; locally, re-run.
-- **`npm ci` complains about lockfile.** `package-lock.json` is committed — `git pull` if it's missing.
-- **A UI test can't find a control.** DemoQA may have changed strings. Open `--ui` mode (`npx playwright test --ui`) and update the locator from the live DOM.
-- **Browser install hangs.** `npx playwright install chromium` downloads ~250MB the first time.
-- **`getAPI()` throws "userInfo not in localStorage."** This usually means the test logged in via the real UI (which stores auth in cookies, not localStorage) and then called `getAPI()` afterward. The fixture's lazy registration writes `userInfo` itself, but a real UI login does not. Run `injectSession` after the UI login if you need `getAPI()` to work, or build a `BaseAPI` directly with `BaseAPI.create({ token })`.
