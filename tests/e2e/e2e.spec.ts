@@ -1,33 +1,27 @@
 import { test, expect } from '../../src/fixtures/test-fixtures';
 import { BaseAPI } from '../../src/fixtures/base-api';
-import { deleteUser, generateToken, getUserProfile, registerUser } from '../../src/functions/auth';
-import { addToCollection, listBooks, removeFromCollection } from '../../src/functions/books';
+import {
+  deleteUser,
+  generateToken,
+  getUserProfile,
+  registerUser,
+} from '../../src/functions/auth';
+import {
+  addToCollection,
+  listBooks,
+  removeFromCollection,
+} from '../../src/functions/books';
 import { generateUserData } from '../../src/functions/test-data';
-
-const cleanups: Array<() => Promise<void>> = [];
-
-test.afterEach(async () => {
-  for (const fn of [...cleanups].reverse()) {
-    try {
-      await fn();
-    } catch {
-      // best-effort
-    }
-  }
-  cleanups.length = 0;
-});
 
 test(
   'Books > E2E > Register, add book, verify, remove, verify gone',
   { annotation: { type: 'ID', description: 'E2E-001' } },
-  async ({ apiContext, customPage: page }) => {
-    // 1. Register via API (UI registration on DemoQA requires a CAPTCHA — API is the deterministic path)
+  async ({ apiContext, page, cleanupStack }) => {
+    // 1. Register via API (UI registration on DemoQA requires a CAPTCHA).
     const user = generateUserData();
     const registered = await registerUser(apiContext, user);
 
-    // Cleanup: re-acquire a fresh token at teardown time so a UI login during the
-    // test (which may invalidate the original JWT) does not leak the user.
-    cleanups.push(async () => {
+    cleanupStack.push(async () => {
       try {
         const tr = await generateToken(apiContext, user);
         if (tr.token) {
@@ -43,7 +37,7 @@ test(
       }
     });
 
-    // 2. Real UI login
+    // 2. Real UI login.
     await page.goto('/login');
     await page.getByPlaceholder('UserName').fill(user.userName);
     await page.getByPlaceholder('Password').fill(user.password);
@@ -58,7 +52,7 @@ test(
     const authedApi = await BaseAPI.create({ token: tokenRes.token! });
 
     try {
-      // 4. Add a book via API (UI add requires opening book detail then "Add to your collection")
+      // 4. Add a book via API.
       const list = await listBooks(authedApi);
       const target = list.books[0]!;
       await addToCollection(authedApi, registered.userID, target.isbn);
@@ -67,12 +61,12 @@ test(
       expect(profile.books).toHaveLength(1);
       expect(profile.books[0]!.isbn).toBe(target.isbn);
 
-      // 5. Remove
+      // 5. Remove.
       await removeFromCollection(authedApi, registered.userID, target.isbn);
       profile = await getUserProfile(authedApi, registered.userID);
       expect(profile.books).toHaveLength(0);
 
-      // 6. UI reflects empty state — refresh the profile page
+      // 6. UI reflects empty state — refresh the profile page.
       await page.reload();
       await expect(page.getByText(target.title, { exact: false })).toHaveCount(0);
     } finally {
