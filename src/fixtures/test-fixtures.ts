@@ -23,6 +23,9 @@ export const test = base.extend<{
     const cleanup = await bp._dispose();
     if (!cleanup) return;
 
+    // DemoQA invalidates a JWT when the same user logs in via the UI later in
+    // the test, so the fixture's original token may be rejected here. Re-acquire
+    // a fresh token via apiContext for the delete.
     try {
       const fresh = await generateToken(apiContext, cleanup.data);
       if (fresh.token) {

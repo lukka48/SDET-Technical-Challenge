@@ -87,8 +87,8 @@ eslint.config.mjs                     Playwright recommended rules
 
 ```ts
 test('example', async ({ customPage: page }) => {
-  await page.goto('/profile'); // native Page method
   const api = await page.getAPI(); // lazily registers a fresh user on first call
+  await page.goto('/profile'); // native Page method — call AFTER getAPI() so the lazy fixture's session navigation does not clobber it
   await expect(page.getByRole('row')).toBeVisible();
 });
 ```
@@ -109,14 +109,16 @@ test('api example', async ({ apiContext }) => {
 
 ```ts
 test('uses customPage', async ({ customPage: page }) => {
-  await page.goto('/profile');
   const api = await page.getAPI(); // first call: registers a user, injects session, returns authed BaseAPI
   const userId = await page.getUserId();
+  await page.goto('/profile'); // navigate AFTER getAPI() — see note below
   // No cleanup code in the test body — fixture teardown handles it.
 });
 ```
 
 The `customPage` fixture is lazy: it does nothing on setup. The first call to `page.getAPI()` (or `getUserId()` / `getUserData()`) registers a fresh user, generates a token, injects the session into cookies + localStorage, and caches an authed `BaseAPI`. Subsequent calls reuse the cache. Tests that need a logged-out starting state simply never call those methods and pay no setup cost.
+
+**Important:** the lazy session injection performs its own `page.goto('/')` so the localStorage write lands on the same-origin page. Always call `page.getAPI()` (or its siblings) BEFORE the test's own `page.goto(...)`, otherwise the fixture's navigation will override yours.
 
 Teardown runs unconditionally — even when the test throws, because Playwright executes fixture teardown after every test. If a user was created, teardown re-acquires a fresh token (DemoQA can invalidate prior JWTs after UI login) and calls `deleteUser`, which cascades to remove the user's entire collection in one call.
 
