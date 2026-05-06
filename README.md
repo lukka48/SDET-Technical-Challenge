@@ -122,14 +122,6 @@ The `customPage` fixture is lazy: it does nothing on setup. The first call to `p
 
 Teardown runs unconditionally — even when the test throws, because Playwright executes fixture teardown after every test. If a user was created, teardown re-acquires a fresh token (DemoQA can invalidate prior JWTs after UI login) and calls `deleteUser`, which cascades to remove the user's entire collection in one call.
 
-### Setup project — shared read-only user
-
-`tests/auth.setup.ts` creates a single shared user before any test runs and persists their session as `.auth/shared-user.json`. The catalog UI test (`CAT-003`) opts in via `test.use({ storageState: '.auth/shared-user.json' })` to skip user creation.
-
-> **Invariant:** only read-only tests use the shared user. No test mutates the shared user's collection — this keeps the suite parallel-safe under `fullyParallel: true`.
-
-A teardown project (`global-teardown-as-project.ts`) runs after all dependents finish and deletes the shared user.
-
 ### Helper functions overview
 
 13 functions across 3 modules. Every helper is overloaded to accept either a `BasePage` (UI tests) or a `BaseAPI` (API tests). 
