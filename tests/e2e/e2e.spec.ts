@@ -21,6 +21,8 @@ test(
     const user = generateUserData();
     const registered = await registerUser(apiContext, user);
 
+    // Re-acquire a fresh token at teardown — UI login below invalidates any
+    // earlier JWT, so we cannot rely on a token captured before the login.
     cleanupStack.push(async () => {
       try {
         const tr = await generateToken(apiContext, user);
