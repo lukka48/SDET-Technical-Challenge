@@ -1,10 +1,9 @@
 import 'dotenv/config';
-import { defineConfig, devices } from '@playwright/test';
+import { defineConfig } from '@playwright/test';
 
 /**
  * @see https://playwright.dev/docs/test-configuration
  */
-
 export default defineConfig({
   testDir: './tests',
   fullyParallel: true,
@@ -20,42 +19,4 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
-  projects: [
-    {
-      name: 'setup',
-      testMatch: /.*\.setup\.ts/,
-      teardown: 'cleanup',
-    },
-    {
-      name: 'cleanup',
-      testMatch: /global-teardown-as-project\.ts/,
-    },
-    {
-     
-      name: 'api',
-      testDir: './tests/api',
-    },
-    {
-      name: 'ui',
-      testDir: './tests/ui',
-      dependencies: ['setup'],
-      use: { ...devices['Desktop Chrome'] },
-    },
-
-    {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
-    },
-
-    {
-      name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
-    },
-
-    {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
-    },
-  ],
 });
-
