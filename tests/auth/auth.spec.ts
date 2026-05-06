@@ -1,25 +1,17 @@
 import { test, expect } from '../../src/fixtures/test-fixtures';
 import { BaseAPI } from '../../src/fixtures/base-api';
-import { deleteUser, generateToken, getUserProfile, registerUser } from '../../src/functions/auth';
+import {
+  deleteUser,
+  generateToken,
+  getUserProfile,
+  registerUser,
+} from '../../src/functions/auth';
 import { generateUserData } from '../../src/functions/test-data';
-
-const cleanups: Array<() => Promise<void>> = [];
-
-test.afterEach(async () => {
-  for (const fn of [...cleanups].reverse()) {
-    try {
-      await fn();
-    } catch {
-      // best-effort
-    }
-  }
-  cleanups.length = 0;
-});
 
 test(
   'Auth > Registration > Creates user with valid credentials',
   { annotation: { type: 'ID', description: 'AUTH-001' } },
-  async ({ apiContext }) => {
+  async ({ apiContext, cleanupStack }) => {
     const user = generateUserData();
 
     const result = await registerUser(apiContext, user);
@@ -30,11 +22,13 @@ test(
     expect(tokenRes.token).toBeTruthy();
     const token = tokenRes.token!;
     const authedApi = await BaseAPI.create({ token });
-    cleanups.push(async () => {
+    cleanupStack.push(async () => {
       await deleteUser(authedApi, token, result.userID);
       await authedApi.dispose();
     });
 
+    // ID format inherited from DemoQA's UUID v4 response. If DemoQA changes
+    // the format this assertion is the canary.
     expect(result.userID).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
     );
@@ -48,10 +42,10 @@ test(
 test(
   'Auth > Login > Returns JWT for valid credentials',
   { annotation: { type: 'ID', description: 'AUTH-002' } },
-  async ({ apiContext }) => {
+  async ({ apiContext, cleanupStack }) => {
     const user = generateUserData();
     const registered = await registerUser(apiContext, user);
-    cleanups.push(async () => {
+    cleanupStack.push(async () => {
       const tr = await generateToken(apiContext, user);
       if (tr.token) {
         const a = await BaseAPI.create({ token: tr.token });
