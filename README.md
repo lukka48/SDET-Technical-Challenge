@@ -36,7 +36,7 @@ npx playwright test
 npx playwright test
 
 # Run a single spec
-npx playwright test tests/ui/collection.spec.ts
+npx playwright test tests/collection/collection.spec.ts
 
 # Interactive UI mode 
 npx playwright test --ui
@@ -63,14 +63,11 @@ src/
     api-client.ts            resolveApi() — narrows ApiSource to BaseAPI
     session.ts               injectSession() — seeds cookies + localStorage for UI tests
 tests/
-  auth.setup.ts                       Setup project: shared read-only user
-  global-teardown-as-project.ts       Teardown project: deletes shared user after the run
-  api/auth.spec.ts                    AUTH-001..003
-  api/books-catalog.spec.ts           CAT-001, CAT-002
-  ui/catalog.spec.ts                  CAT-003
-  ui/collection.spec.ts               COLL-001..004
-  ui/profile.spec.ts                  PROF-001
-  ui/e2e.spec.ts                      E2E-001
+  auth/auth.spec.ts                   AUTH-001..003
+  catalog/catalog.spec.ts             CAT-001, CAT-002, CAT-003
+  collection/collection.spec.ts       COLL-001..004
+  profile/profile.spec.ts             PROF-001
+  e2e/e2e.spec.ts                     E2E-001
 playwright.config.ts                  Projects, retries, reporters, env-aware CI behavior
 package.json                          All dependencies declared
 tsconfig.json                         Strict mode, @/* alias to src/*
