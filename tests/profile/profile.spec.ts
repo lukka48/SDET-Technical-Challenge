@@ -38,9 +38,6 @@ test(
     await page.waitForURL(/profile/i, { timeout: 15_000 });
 
     // Assert — URL, username on page, and an API-side cross-check.
-    // expect(page).toHaveURL is intentionally not used here; the BasePage Proxy
-    // breaks Playwright's internal Page-instance check. Plain `page.url()`
-    // works because `page` is not proxied.
     expect(page.url()).toMatch(/profile/i);
     await expect(page.getByText(user.userName).first()).toBeVisible();
 
