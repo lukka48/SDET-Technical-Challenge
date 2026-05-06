@@ -12,7 +12,7 @@ export interface TestUser {
   api: BaseAPI;
 }
 
-export type CleanupStack = Array<() => Promise<void>>;
+export type CleanupStack = Array<() => void | Promise<void>>;
 
 export const test = base.extend<{
   customPage: BasePage;

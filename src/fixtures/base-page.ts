@@ -47,6 +47,7 @@ export class BasePageImpl {
 
   /** Internal — used by the customPage fixture teardown. */
   async _dispose(): Promise<{ data: UserData; userId: string } | null> {
+    this.inFlight = null;
     if (!this.cached) return null;
     const { data, userId, authedApi } = this.cached;
     await authedApi.dispose();
