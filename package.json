@@ -11,8 +11,6 @@
   "scripts": {
     "test": "playwright test",
     "test:ui": "playwright test --ui",
-    "test:api": "playwright test --project=api",
-    "test:ui:project": "playwright test --project=ui",
     "report": "playwright show-report",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
