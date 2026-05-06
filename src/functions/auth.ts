@@ -32,7 +32,7 @@ export async function getUserProfile(api: ApiSource, userId: string): Promise<Us
 
 /**
  * Deletes the user and cascades — wipes the user record AND their entire collection.
- * This is the cleanup primitive used by the testUser fixture's teardown.
+ * This is the cleanup primitive used by the customPage fixture's teardown.
  *
  * The `token` parameter is mandated by the challenge spec signature. When `api`
  * is already authenticated (which it must be — DELETE requires auth), the bearer

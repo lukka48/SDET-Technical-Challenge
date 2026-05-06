@@ -53,7 +53,7 @@ src/
   fixtures/
     base-api.ts              BaseAPI wrapper — auto-throws on non-2xx, JSON parse, brand-string discriminator
     base-page.ts             BasePage Proxy — fuses Playwright Page with domain methods
-    test-fixtures.ts         customPage, apiContext, testUser
+    test-fixtures.ts         customPage, apiContext, cleanupStack
     types.ts                 Shared TypeScript types for DemoQA contracts
   functions/
     auth.ts                  registerUser, generateToken, getUserProfile, deleteUser
@@ -86,9 +86,9 @@ eslint.config.mjs                     Playwright recommended rules
 **`BasePage`** is a JavaScript `Proxy` over Playwright's `Page`. Tests get native `Page` methods AND domain helpers (`getAPI`, `getUserId`, `getUserData`) from a single object:
 
 ```ts
-test('example', async ({ customPage: page, testUser }) => {
+test('example', async ({ customPage: page }) => {
   await page.goto('/profile'); // native Page method
-  const api = await page.getAPI(); // domain helper (cached, auto-disposed)
+  const api = await page.getAPI(); // lazily registers a fresh user on first call
   await expect(page.getByRole('row')).toBeVisible();
 });
 ```
@@ -105,16 +105,20 @@ test('api example', async ({ apiContext }) => {
 });
 ```
 
-### `testUser` — guaranteed cleanup
+### `customPage` — lazy user creation with guaranteed cleanup
 
 ```ts
-test('uses testUser', async ({ testUser }) => {
-  // testUser.user, testUser.userId, testUser.token, testUser.api are ready.
+test('uses customPage', async ({ customPage: page }) => {
+  await page.goto('/profile');
+  const api = await page.getAPI(); // first call: registers a user, injects session, returns authed BaseAPI
+  const userId = await page.getUserId();
   // No cleanup code in the test body — fixture teardown handles it.
 });
 ```
 
-The `testUser` fixture registers a user, generates a token, yields a fully-formed session, and deletes the user in teardown — even when the test throws, because Playwright executes fixture teardown unconditionally. The teardown re-acquires a fresh token (DemoQA can invalidate prior JWTs after UI login) before calling `deleteUser`, which cascades to remove the user's entire collection in one call.
+The `customPage` fixture is lazy: it does nothing on setup. The first call to `page.getAPI()` (or `getUserId()` / `getUserData()`) registers a fresh user, generates a token, injects the session into cookies + localStorage, and caches an authed `BaseAPI`. Subsequent calls reuse the cache. Tests that need a logged-out starting state simply never call those methods and pay no setup cost.
+
+Teardown runs unconditionally — even when the test throws, because Playwright executes fixture teardown after every test. If a user was created, teardown re-acquires a fresh token (DemoQA can invalidate prior JWTs after UI login) and calls `deleteUser`, which cascades to remove the user's entire collection in one call.
 
 ### Setup project — shared read-only user
 
@@ -173,4 +177,4 @@ A teardown project (`global-teardown-as-project.ts`) runs after all dependents f
 - **`npm ci` complains about lockfile.** `package-lock.json` is committed — `git pull` if it's missing.
 - **A UI test can't find a control.** DemoQA may have changed strings. Open `--ui` mode (`npx playwright test --ui`) and update the locator from the live DOM.
 - **Browser install hangs.** `npx playwright install chromium` downloads ~250MB the first time.
-- **`getAPI()` throws "userInfo not in localStorage."** That fixture method depends on the test having logged in (or run `injectSession`) before the call. After a real UI login, DemoQA stores auth in cookies, not localStorage — use `injectSession` if you need `getAPI()` to work afterward, or pass `testUser.api` directly.
+- **`getAPI()` throws "userInfo not in localStorage."** This usually means the test logged in via the real UI (which stores auth in cookies, not localStorage) and then called `getAPI()` afterward. The fixture's lazy registration writes `userInfo` itself, but a real UI login does not. Run `injectSession` after the UI login if you need `getAPI()` to work, or build a `BaseAPI` directly with `BaseAPI.create({ token })`.
