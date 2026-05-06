@@ -1,84 +1,92 @@
 import type { Page } from '@playwright/test';
 import { BaseAPI } from './base-api';
+import { generateToken, registerUser } from '../functions/auth';
+import { generateUserData } from '../functions/test-data';
+import { injectSession } from '../support/session';
+import type { UserData } from './types';
 
-interface UserInfoStorage {
+interface CachedUser {
+  data: UserData;
   userId: string;
-  userName: string;
   token: string;
-  expires: string;
-}
-
-/**
- * Subset of UserData that is actually recoverable from `localStorage.userInfo`.
- * The password is NOT stored client-side — tests that need it should keep the
- * generated credentials in scope (e.g. via the `testUser` fixture).
- */
-export interface UserDataFromStorage {
-  userName: string;
+  authedApi: BaseAPI;
 }
 
 export class BasePageImpl {
-  private cachedApi: BaseAPI | null = null;
+  private cached: CachedUser | null = null;
+  // Promise-memoized so concurrent callers share one registration, not race.
+  private inFlight: Promise<CachedUser> | null = null;
 
-  constructor(public readonly page: Page) {}
+  constructor(
+    public readonly page: Page,
+    private readonly apiContext: BaseAPI,
+  ) {}
 
   /**
-   * Returns an authenticated BaseAPI built from the JWT in localStorage.userInfo.token.
-   * Memoized — subsequent calls reuse the same APIRequestContext, which the customPage
-   * fixture's teardown disposes.
+   * Lazily registers a fresh user, injects the session into cookies + localStorage,
+   * and returns an authed BaseAPI. Subsequent calls reuse the cache.
    *
-   * Precondition: page must have navigated to a same-origin URL AND the user must
-   * be logged in (userInfo present in localStorage).
+   * Side-effects on first call: page.context() gets DemoQA auth cookies; the page
+   * is navigated to BASE_URL so localStorage.userInfo can be written. Tests that
+   * need a logged-out starting state (real UI login flows) MUST NOT call this.
    */
   async getAPI(): Promise<BaseAPI> {
-    if (this.cachedApi) return this.cachedApi;
-    const token = await this.readUserInfo<string>('token');
-    this.cachedApi = await BaseAPI.create({ token });
-    return this.cachedApi;
+    const u = await this._ensureUser();
+    return u.authedApi;
   }
 
   async getUserId(): Promise<string> {
-    return this.readUserInfo<string>('userId');
+    const u = await this._ensureUser();
+    return u.userId;
   }
 
-  async getUserData(): Promise<UserDataFromStorage> {
-    const info = await this.page.evaluate(() => {
-      const raw = localStorage.getItem('userInfo');
-      if (!raw) return null;
-      return JSON.parse(raw) as { userName: string };
-    });
-    if (!info) {
-      throw new Error('getUserData(): userInfo not in localStorage — log in first');
+  async getUserData(): Promise<UserData> {
+    const u = await this._ensureUser();
+    return u.data;
+  }
+
+  /** Internal — used by the customPage fixture teardown. */
+  async _dispose(): Promise<{ data: UserData; userId: string } | null> {
+    if (!this.cached) return null;
+    const { data, userId, authedApi } = this.cached;
+    await authedApi.dispose();
+    this.cached = null;
+    return { data, userId };
+  }
+
+  private async _ensureUser(): Promise<CachedUser> {
+    if (this.cached) return this.cached;
+    if (this.inFlight) return this.inFlight;
+
+    this.inFlight = (async (): Promise<CachedUser> => {
+      const data = generateUserData();
+      const registered = await registerUser(this.apiContext, data);
+      const tokenRes = await generateToken(this.apiContext, data);
+      if (!tokenRes.token) {
+        throw new Error(`BasePage._ensureUser: GenerateToken failed: ${tokenRes.result}`);
+      }
+      await injectSession(this.page, {
+        userId: registered.userID,
+        userName: data.userName,
+        token: tokenRes.token,
+      });
+      const authedApi = await BaseAPI.create({ token: tokenRes.token });
+      return { data, userId: registered.userID, token: tokenRes.token, authedApi };
+    })();
+
+    try {
+      this.cached = await this.inFlight;
+      return this.cached;
+    } finally {
+      this.inFlight = null;
     }
-    return { userName: info.userName };
-  }
-
-  /** Internal — called by the customPage fixture teardown. */
-  async _dispose(): Promise<void> {
-    await this.cachedApi?.dispose();
-    this.cachedApi = null;
-  }
-
-  private async readUserInfo<T>(key: keyof UserInfoStorage): Promise<T> {
-    const value = await this.page.evaluate((k) => {
-      const raw = localStorage.getItem('userInfo');
-      if (!raw) return undefined;
-      const parsed = JSON.parse(raw);
-      return parsed[k];
-    }, key as string);
-    if (value === null || value === undefined) {
-      throw new Error(
-        `BasePage.readUserInfo: '${String(key)}' not found in localStorage.userInfo — log in first`,
-      );
-    }
-    return value as T;
   }
 }
 
 export type BasePage = BasePageImpl & Page;
 
-export function createBasePage(page: Page): BasePage {
-  const impl = new BasePageImpl(page);
+export function createBasePage(page: Page, apiContext: BaseAPI): BasePage {
+  const impl = new BasePageImpl(page, apiContext);
   return new Proxy(impl, {
     get(target, prop, receiver) {
       if (prop in target) return Reflect.get(target, prop, receiver);
